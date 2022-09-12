@@ -19,4 +19,7 @@ Route::get("/generate_token",[GetnetController::class, "generate_token"]);
 
 
 // Route::get("/return_page/{login}/{tranKey}/{nonce}/{seed}",[GetnetController::class, "return_page"]);
-Route::get("/return_page",[GetnetController::class, "return_page"]);
+Route::get("/return_page/{reference}",[GetnetController::class, "return_page"]);
+
+
+Route::get("demo_demo",[GetnetController::class, "demo_demo"]);

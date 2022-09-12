@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
-
+use App\Models\PerPage;
+use Cookie;
 
 class GetnetController extends Controller{
     
@@ -45,6 +46,14 @@ class GetnetController extends Controller{
         $tranKey = base64_encode(hash('sha1', $nonce . $seed . $this->secretKey, true));
         $expiration = date('c', strtotime('+20 minutes', strtotime($seed)));
 
+        // * GUARDO LOS DATOS GENERADOS PARA CREAR EL ARRAY O EL OBJETO A ENVIAR 
+        $pago = new PerPage;
+        $pago->login = $this->login;
+        $pago->tranKey = $tranKey;
+        $pago->nonce = $nonceBase64;
+        $pago->seed = $seed;
+        $pago->save();
+
         $auth = array(
             "auth" => array(
                 'login' => $this->login,
@@ -71,7 +80,7 @@ class GetnetController extends Controller{
             ),
             "expiration"    => $expiration,
             // "returnUrl"     => "http://127.0.0.1:8000/return_page/?login=".$this->login."&tranKey=".$tranKey."&nonce=".$nonceBase64."&seed=".$seed,
-            "returnUrl"     => "http://127.0.0.1:8000/return_page/",
+            "returnUrl"     => "http://127.0.0.1:8000/return_page/reference=".$pago->id,
             "ipAddress"     => "127.0.0.1",
             "userAgent"     => "neumachile",
             "skipResult"    => false
@@ -88,35 +97,62 @@ class GetnetController extends Controller{
             ]
         );
 
-        return $response->getBody();
+        $data_response = $response->getBody();
+        $data =  json_decode( $data_response, true);
+        $requestId = $data["requestId"];
+
+        // * ACTUALIZO EL requesID para saber que id unico de getnet segenera
+        PerPage::where("id", $pago->id)->update(["requestId" => $requestId]);
+
+        return $data_response;
     }
 
 
-    function return_page(Request $request){
-        // $seed = date('c');
-        // $auth = array(
-        //     "auth" => array(
-        //         'login' => $request->login,
-        //         'tranKey' => $request->tranKey,
-        //         'nonce' => $request->nonceBase64,
-        //         'seed' => $seed
-        //     ),
-        // );
+    function return_page(Request $request, $reference){
 
-        // $client = new Client();
-        // $headers = [
-        //     'Accept' => 'application/json',
-        //     'Content-Type' => 'application/json',
-        // ];
-        // $response = $client->request('GET', 'https://checkout.test.getnet.cl/getRequestInformation/',
-        //     [
-        //         'headers' => $headers,
-        //         'json' => $auth
-        //     ]
-        // );
-            echo $request;
-            // dd($request);
-        // return $response->getBody();
+        $id = intval(str_replace("reference=", "", $reference));
+
+        $data = PerPage::where("id", $id)->get()->first();
+        // 6361/768c4c87303474071973b30f8be020e3
+
+        $auth = array(
+            "auth" => array(
+                'login' => $data->login,
+                'tranKey' => $data->tranKey,
+                'nonce' => $data->nonce,
+                'seed' => $data->seed
+            ),
+            "internalReference" => $data->requestId
+        );
+
+
+        $client = new Client();
+        $headers = [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
+        $response = $client->request('GET', 'https://checkout.uat.getnet.cl/api/session/'.$data->requestId,
+            [
+                'headers' => $headers,
+                'json' => $auth
+            ]
+        );
+        
+        echo $response;
+        
     }
+
+
+    // * TESTING PRUEBA DE SOFTWARE
+    public function demo_demo(){
+        $pago = new PerPage;
+        $pago->login = "demo_desde_postman";
+        $pago->tranKey = "demo_desde_postman";
+        $pago->nonce = "demo_desde_postman";
+        $pago->seed = "demo_desde_postman";
+        $pago->save();
+        return "guardado correctamente 2";
+    }
+
 
 }

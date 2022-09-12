@@ -48,8 +48,8 @@
 
         auth.then(res => {
             const data = res
-            console.log(res);
-            console.log(res.processUrl)
+            // console.log(res.processUrl)
+            // console.log(res.requestId)
             window.location.href = res.processUrl
         })
     })
